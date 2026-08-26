@@ -1,0 +1,62 @@
+services:
+  nginx:
+    image: {{  nas__images.nginx }}
+    ports:
+      - "80:80"
+      - "443:443/tcp"
+      - "443:443/udp"
+      - "636:636"
+    restart: always
+    networks:
+      - nas
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./conf/nginx/:/docker-entrypoint.d/:ro
+      - ${RUNTIME}/letsencrypt/etc:/etc/letsencrypt:ro
+    env_file:
+      - ./env/domains.env
+    labels:
+      certbot.deploy.restart: true
+    depends_on:
+      certbot-dns:
+        condition: service_healthy
+
+  whoami:
+    image: {{ nas__images.whoami }}
+    restart: always
+    networks:
+      - nas
+
+  certbot-dns:
+    image: my-dns-cloudflare
+    build:
+      args:
+        IMAGE: {{ nas__images.certbot_dns_cf }}
+      context: ./docker/certbot-dns-cloudflare/
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${RUNTIME}/letsencrypt/etc:/etc/letsencrypt
+      - ${RUNTIME}/letsencrypt/lib:/var/lib/letsencrypt
+      - ${RUNTIME}/letsencrypt/log:/var/log/letsencrypt/
+    environment:
+      RENEWAL_DEPLOY_HOOK: "docker restart `docker ps -q --filter 'label=certbot.deploy.restart=true'`"
+      STAGING: {{ nas__certbot_staging | default(false) }}
+    env_file:
+      - ./env/domains.env
+      - ./env/uid.env
+      - ./secrets/secrets.env
+    healthcheck:
+      interval: 20s
+      timeout: 15s
+      retries: 20
+      start_period: 5s
+
+networks:
+  nas:
+    name: nas
+    ipam:
+      driver: default
+      config:
+        - subnet: {{ nas__subnets_nas | default(nas__subnets_default.nas ) }}

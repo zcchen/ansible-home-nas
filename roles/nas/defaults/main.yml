@@ -1,0 +1,58 @@
+---
+
+nas__dir_base: /app/nas
+nas__dir_userdata: "${PWD}/userdata/nas"
+nas__dir_runtime: "${PWD}/runtime/nas"
+nas__subnets_nas: 172.28.100.0/24
+nas__subnets_nextcloud: 172.28.102.0/24
+
+nas__certbot_staging: false
+nas__domain_nas: "nas.example.com"
+nas__domain_ldap: "example.com"
+nas__docker_mirror: ""
+
+nas__default_group: "group"
+nas__samba_sharename: "samba"
+nas__samba_username: "samba"
+nas__samba_password: "samba"
+nas__samba_mountpoint: "samba-share"
+nas__samba_subdirs:
+  - "Public"
+
+nas__proxy: ""
+
+nas__mail_enable: false
+nas__mail_name__fromid: noreply
+nas__mail_name__domain: example.com
+nas__mail_smtp__host: smtp.example.com
+nas__mail_smtp__port: 465
+nas__mail_smtp__secure: ssl
+nas__mail_smtp__need_auth: false
+nas__mail_smtp__username: "{{ nas__mail_name__fromid }}@{{ nas__mail_name__domain }}"
+nas__mail_smtp__password: "mail-password"
+
+nas__dns_api__envname: CLOUDFLARE_API_TOKEN
+nas__dns_api__token: "your-secret-api-token"
+
+nas__ldap__admin_password: "admin-insecure-passwd"
+nas__ldap__config_password: "config-insecure-passwd"
+nas__ldap__readonly_username: "readonly"
+nas__ldap__readonly_password: "readonly-insecure-passwd"
+nas__ldap__ssp_username: "ssp"
+nas__ldap__ssp_password: "ssp-insecure-passwd"
+
+nas__oidc__nextcloud_id: "nextcloud"
+nas__oidc__nextcloud_secret: "nextcloud-insecure-secret-123-balabala"
+nas__nextcloud__admin_username: "admin"
+nas__nextcloud__admin_password: "nextcloud-admin-insecure-passwd"
+
+nas__nextcloud__db_name: nextcloud
+nas__nextcloud__db_user: nextcloud
+nas__nextcloud__db_passwd: nextcloud
+
+nas__ldap__userlist:
+  - uid: username
+    passwd: insecure-password
+    email: user@example
+    firstname: user_firstname
+    surname: user_surname

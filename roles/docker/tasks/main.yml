@@ -1,0 +1,55 @@
+---
+
+- name: Combine the docker__proxy variables
+  ansible.builtin.set_fact:
+    _docker__proxy: "{{ docker__proxy_default | combine(docker__proxy | default({}), list_merge='append_rp') }}"
+
+- name: install the docker environment
+  become: true
+  ansible.builtin.apt:
+    update_cache: true
+    name:
+      - docker.io
+      - docker-compose
+      - python3-docker
+
+- name: "add user <{{ansible_ssh_user}}> to group <docker>"
+  become: true
+  ansible.builtin.user:
+    name: "{{ansible_ssh_user}}"
+    groups: docker
+    append: true
+  notify:
+    - restart docker
+
+- name: "Make dir '/etc/systemd/system/docker.service.d/' if needed"
+  become: true
+  when: _docker__proxy.enable
+  ansible.builtin.file:
+    path: /etc/systemd/system/docker.service.d/
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  notify:
+    - reload systemd
+    - restart docker
+
+- name: "Generate /etc/systemd/system/docker.service.d/http-proxy.conf if needed"
+  become: true
+  when: _docker__proxy.enable
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/docker.service.d/http-proxy.conf
+    mode: '0644'
+    content: |
+      [Service]
+      Environment="HTTP_PROXY={{ _docker__proxy.http_proxy }}"
+      Environment="HTTPS_PROXY={{ _docker__proxy.https_proxy }}"
+      Environment="NO_PROXY={{ _docker__proxy.no_proxy }}"
+  notify:
+    - reload systemd
+    - restart docker
+
+- name: Force docker handlers to run now
+  ansible.builtin.meta: flush_handlers
+

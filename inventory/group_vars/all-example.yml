@@ -1,0 +1,70 @@
+---
+
+ansible_connection: ssh
+# ansible_ssh_common_args: "-4 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ServerAliveInterval=100"
+ansible_ssh_common_args: "-4 -o ServerAliveInterval=100"
+ansible_ssh_args: "-C"
+
+__nas__certbot_staging: true
+__domain_basename: example.com
+
+__login_nas_ssh_user: root
+__login_nas_ssh_passwd: example-passwd
+
+__network:
+  nas:
+    A:
+      baseAddr: 192.168.5.1/24
+
+__http_proxy: ""
+__nas__docker_mirror: ""
+
+__nas__dir_base: "/app/nas"
+__nas__dir_userdata: "/app/nas/userdata"
+__nas__dir_runtime: "/app/nas/runtime"
+__nas__subnets_nas: 172.28.100.0/24
+__nas__subnets_nextcloud: 172.28.102.0/24
+
+__nas__default_group: "group"
+__nas__samba_sharename: "samba"
+__nas__samba_username: "samba"
+__nas__samba_password: "samba"
+__nas__samba_mountpoint: "samba-share"
+__nas__samba_subdirs:
+  - "Public"
+
+# email.env
+__nas__mail_enable: false
+__nas__mail_name__fromid: noreply
+__nas__mail_name__domain: example.com
+__nas__mail_smtp__host: smtp.example.com
+__nas__mail_smtp__port: 465
+__nas__mail_smtp__secure: ssl
+__nas__mail_smtp__need_asuth: false
+__nas__mail_smtp__username: "{{ __nas__mail_name__fromid }}@{{ __nas__mail_name__domain }}"
+__nas__mail_smtp__password: "mail-password"
+
+# secrets.env
+__nas__dns_api__envname: CLOUDFLARE_API_TOKEN
+__nas__dns_api__token: "your-secret-api-token"
+__nas__ldap__admin_password: "admin-insecure-passwd"
+__nas__ldap__config_password: "config-insecure-passwd"
+__nas__ldap__readonly_username: "readonly"
+__nas__ldap__readonly_password: "readonly-insecure-passwd"
+__nas__ldap__ssp_username: "ssp"
+__nas__ldap__ssp_password: "ssp-insecure-passwd"
+__nas__oidc__nextcloud_id: "nextcloud"
+__nas__oidc__nextcloud_secret: "nextcloud-insecure-secret-123-balabala"
+__nas__nextcloud__admin_username: "admin"
+__nas__nextcloud__admin_password: "nextcloud-admin-insecure-passwd"
+__nas__nextcloud__db_name: nextcloud
+__nas__nextcloud__db_user: nextcloud
+__nas__nextcloud__db_passwd: nextcloud
+
+# user list to be created
+__nas__ldap__userlist:
+  - uid: username
+    passwd: insecure-password
+    email: user@example.com
+    firstname: user_firstname
+    surname: user_surname

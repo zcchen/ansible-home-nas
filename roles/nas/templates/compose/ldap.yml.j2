@@ -1,0 +1,116 @@
+services:
+  ldap:
+    image: {{ nas__images.ldap_base }}
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "ldapsearch -Y EXTERNAL -H ldapi:/// -s base 2>&1 1>/dev/null || exit 1"]
+      interval: 5s
+      timeout: 1s
+      retries: 5
+      start_period: 5s
+    environment:
+      LDAP_LOG_LEVEL: 0
+      LDAP_TLS: false
+      LDAP_TLS_ENFORCE: false
+      LDAP_RFC2307BIS_SCHEMA: true  # use rfc2307bis to enable `groupOfMembers` objectClass
+      LDAP_BACKEND: mdb
+      LDAPEXT__USERS_LIST_FILE: /run/secrets/ldap-ext-users.txt
+    env_file:
+      - ./secrets/secrets.env
+      - ./env/domains.env
+      - ./env/ldap.env
+      - ./env/user-group.env
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./conf/openldap/ext-users/:/container/service/zzz_ext-users/:ro
+      # - ./conf/openldap/10.base-dn.ldif:/container/service/slapd/assets/config/bootstrap/ldif/10.base-dn.ldif:ro
+      - ./secrets/ldap-ext-users.txt:/run/secrets/ldap-ext-users.txt:ro
+      # TODO: update the reset script to reset the passwd of a user which from `EXT_USERS_LIST`.
+      - ./conf/openldap/ext-reset-passwd.sh:/ext-reset-passwd.sh:ro
+      - ${RUNTIME}/openldap/conf/:/etc/ldap/slapd.d/
+      - ${RUNTIME}/openldap/db/:/var/lib/ldap/
+    networks:
+      - nas
+    ports:
+      - "389:389"
+    command:
+      - "--copy-service"
+      # - "--loglevel"
+      # - "debug"
+      # # - "trace"
+    # stdin_open: true # Keeps the stdin open (like docker run -i)
+    # tty: true        # Allocates a pseudo-TTY (like docker run -t)
+    # entrypoint: ["/bin/bash"]
+
+  ldap-admin:
+    image: {{ nas__images.ldap_admin }}
+    restart: unless-stopped
+    networks:
+      - nas
+    depends_on:
+      - ldap
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: ldap
+      PHPLDAPADMIN_HTTPS: false
+    volumes:
+      - ${RUNTIME}/phpldapadmin/:/var/www/phpldapadmin:z
+
+  auth:
+    image: {{ nas__images.ldap_oidc }}
+    restart: always
+    expose:
+      - "80"
+    networks:
+      - nas
+    depends_on:
+      ldap:
+        condition: service_healthy
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./conf/authelia/authelia.yml:/config/configuration.yml:ro
+      - ./conf/authelia/entrypoint.sh:/entrypoint.sh:ro
+      - ${RUNTIME}/authelia/:/config/
+    environment:
+      X_AUTHELIA_CONFIG_FILTERS: template
+      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_IMPLEMENTATION: custom
+      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ADDRESS: ldap://ldap:389
+      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_TIMEOUT: 5s
+      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_START_TLS: false
+      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ADDITIONAL_USERS_DN: ou=people
+      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_ADDITIONAL_GROUPS_DN: ou=groups
+      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_USERS_FILTER: (&({username_attribute}={input})(objectClass=person))
+      AUTHELIA_AUTHENTICATION_BACKEND_LDAP_GROUPS_FILTER: (&(uniquemember={dn})(objectclass=groupOfUniqueNames))
+    env_file:
+      - ./secrets/secrets.env
+      - ./env/domains.env
+      - ./env/ldap.env
+      - ./env/uid.env
+    entrypoint: [ "/entrypoint.sh" ]
+    # entrypoint: [ "/bin/sh" ]
+    # stdin_open: true # Equivalent to -i
+    # tty: true        # Equivalent to -t
+
+  ssp:
+    image: {{ nas__images.ldap_ssp }}
+    networks:
+      - nas
+    depends_on:
+      ldap:
+        condition: service_healthy
+    environment:
+      USE_EMAIL: {{ nas__mail_enable | default(false) }}
+      USE_QUESTIONS: false
+      USE_SMS: false
+    env_file:
+      - ./secrets/secrets.env
+      - ./env/domains.env
+      - ./env/ldap.env
+      - ./secrets/email.env
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./conf/ssp-entrypoint.sh:/ssp-entrypoint.sh:ro
+      - ${RUNTIME}/ssp/templates_c/:/var/www/templates_c:z
+      - ${RUNTIME}/ssp/conf/:/var/www/conf:z
+      - ${RUNTIME}/ssp/cache/:/var/www/cache:z
+    entrypoint: ['/ssp-entrypoint.sh']
+    command: ['apache2-foreground']   # keep its original COMMAND config

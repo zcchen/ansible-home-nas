@@ -1,0 +1,35 @@
+services:
+  office:
+    image: {{ nas__images.onlyoffice }}
+    restart: always
+    init: true
+    env_file:
+      - ./env/proxy.env
+      - ./secrets/secrets.env
+      - ./conf/onlyoffice/conf.env
+    environment:
+      ALLOW_PRIVATE_IP_ADDRESS: true
+      ALLOW_META_IP_ADDRESS: true
+      PLUGINS_ENABLED: true
+    expose:
+      - '80'
+    networks:
+      - nas
+    entrypoint: ["/entrypoint.sh"]
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./conf/onlyoffice/entrypoint.sh:/entrypoint.sh:ro
+      - ./conf/onlyoffice/plugins:/plugin-installers:ro
+      - plugins.onlyoffice:/var/www/onlyoffice/documentserver/sdkjs-plugins:z
+      - ${RUNTIME}/onlyoffice/data:/var/www/onlyoffice/Data:z
+      - ${RUNTIME}/onlyoffice/log:/var/log/onlyoffice:z
+      - ${RUNTIME}/onlyoffice/lib:/var/lib/onlyoffice:z
+      - ${RUNTIME}/onlyoffice/fonts:/usr/share/fonts/truetype/custom:z
+
+volumes:
+  plugins.onlyoffice:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: ${RUNTIME}/onlyoffice/plugins

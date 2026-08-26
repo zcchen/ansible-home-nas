@@ -1,0 +1,152 @@
+services:
+  files:
+    image: {{ nas__images.nginx }}
+    restart: always
+    networks:
+      - nas
+      - nextcloud
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./conf/nextcloud/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${RUNTIME}/nextcloud/html/:/var/www/html/:z,ro
+      - ${RUNTIME}/nextcloud/config/:/var/www/html/config/:z,ro
+      - ${RUNTIME}/nextcloud/custom-apps/:/var/www/html/custom_apps/:z,ro
+      - ${USERDATA}/nextcloud/data/:/var/www/html/data/:z,ro
+    depends_on:
+      - fpm.nextcloud
+
+  db.nextcloud:
+    # Note: Check the recommend version here: https://docs.nextcloud.com/server/latest/admin_manual/installation/system_requirements.html#server
+    image: {{ nas__images.nextcloud_pg }}
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${RUNTIME}/nextcloud/postgres/:/var/lib/postgresql:Z
+    env_file:
+      - ./secrets/secrets.env
+      - ./conf/nextcloud/conf.env
+    networks:
+      - nextcloud
+
+  redis.nextcloud:
+    image: {{ nas__images.nextcloud_redis }}
+    restart: always
+    networks:
+      - nextcloud
+
+  imaginary.nextcloud:        # for nextcloud `files` app to generate the image previews
+    image: {{ nas__images.nextcloud_imaginary }}
+    restart: always
+    expose:
+      - 80
+    environment:
+      PORT: 80
+      GOLANG_LOG: debug
+    command:
+      - "-concurrency"
+      - "50"
+      - "-enable-url-source"
+    networks:
+      - nextcloud
+
+  fpm.nextcloud:
+    image: my-nextcloud
+    build:
+      args:
+        IMAGE: {{ nas__images.nextcloud_fpm }}
+        MIRROR_URL: {{ nas__docker_mirror }}
+      context: ./docker/nextcloud-fpm-ext/
+    restart: always
+    networks:
+      - nextcloud
+      - nas         # let fpm able to talk to ldap container.
+    devices:
+      - /dev/dri:/dev/dr
+    volumes:
+      - ./conf/nextcloud/skeleton/:/skeleton/:ro
+      - /etc/localtime:/etc/localtime:ro
+      - ./conf/nextcloud/fpm-www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
+      - ./conf/nextcloud/hooks.before-starting/:/docker-entrypoint-hooks.d/before-starting:ro
+      - ./conf/nextcloud/hooks.pre-installation/:/docker-entrypoint-hooks.d/pre-installation/:ro
+      - ./conf/nextcloud/hooks.post-installation/:/docker-entrypoint-hooks.d/post-installation:ro
+      - ./conf/nextcloud/hooks.pre-upgrade/:/docker-entrypoint-hooks.d/pre-upgrade/:ro
+      - ./conf/nextcloud/hooks.post-upgrade/:/docker-entrypoint-hooks.d/post-upgrade/:ro
+      - ${RUNTIME}/nextcloud/html/:/var/www/html/:z
+      - ${RUNTIME}/nextcloud/config/:/var/www/html/config/:z
+      - ${RUNTIME}/nextcloud/custom-apps/:/var/www/html/custom_apps/:z
+      - ${USERDATA}/nextcloud/data/:/var/www/html/data/:z
+    environment:
+      POSTGRES_HOST: db.nextcloud
+      REDIS_HOST: redis.nextcloud
+      REDIS_HOST_PORT: 6379
+      PHP_UPLOAD_LIMIT: 16G
+      PHP_MEMORY_LIMIT: 1G
+      OVERWRITEPROTOCOL: "https"
+      TRUSTED_PROXIES: "{{ nas__subnets_nas | default(nas__subnets_default.nas) }}"
+      NC_CONFIGS__MAINTENACE_WINDOW_START: 1
+      NC_CONFIGS__DEFAULT_APP: "files"
+      NC_CONFIGS__USE_EMAIL: {{ nas__mail_enable | default(false) }}
+      NC_CONFIGS__USER_SKELETON_DIR: /skeleton/ # The skeleton will be copied to /var/www/skeleton
+      NC_CONFIGS__DEFAULT_LOCALE: "zh_CN"
+      NC_CONFIGS__PROXY_USER_PASSED: ""
+      NC_CONFIGS__DISABLE_APPS: "activity dashboard office photos"
+      NC_CONFIGS__INSTALL_APPS: "checksum calendar deck epubviewer camerarawpreviews passwords bookmarks music"
+    env_file:
+      - ./secrets/secrets.env
+      - ./env/domains.env
+      - ./env/proxy.env
+      - ./env/ldap.env
+      - ./env/user-group.env
+      - ./env/samba-share.env
+      - ./secrets/email.env
+      - ./conf/nextcloud/conf.env
+    depends_on:
+      - db.nextcloud
+      - redis.nextcloud
+
+  cron.nextcloud:
+    image: my-nextcloud
+    restart: always
+    init: true
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${RUNTIME}/nextcloud/html/:/var/www/html/:z
+      - ${RUNTIME}/nextcloud/config/:/var/www/html/config/:z
+      - ${RUNTIME}/nextcloud/custom-apps/:/var/www/html/custom_apps/:z
+      - ${USERDATA}/nextcloud/data/:/var/www/html/data/:z
+    entrypoint: "/cron.sh"
+    networks:
+      - nextcloud
+    depends_on:
+      - db.nextcloud
+      - redis.nextcloud
+
+  samba.nextcloud:
+    image: {{ nas__images.nextcloud_samba }}
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./conf/samba/entrypoint.sh:/entrypoint.sh
+      # Mount multiple sub-dirs, and keep user not to be 'root, so that the user cannot mkdir top sub dirs.
+{% for d in nas__samba_subdirs | default([]) %}
+      - ${USERDATA}/samba/{{ d }}:/storage/{{ d }}
+{% endfor %}
+      - ${RUNTIME}/samba/storage:/storage
+    ports:
+      - 139:139
+      - 445:445
+    networks:
+      - nextcloud
+    environment:
+      RW: true    # Optional, default true
+    entrypoint: ['/entrypoint.sh']
+    env_file:
+      - ./env/uid.env
+      - ./env/samba-share.env
+
+networks:
+  nextcloud:
+    ipam:
+      driver: default
+      config:
+        - subnet: {{ nas__subnets_nextcloud | default(nas__subnets_default.nextcloud) }}

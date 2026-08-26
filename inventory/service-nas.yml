@@ -1,0 +1,62 @@
+---
+
+nas:
+  hosts:
+    nas.A:
+  vars:
+    docker__proxy:
+      enable: "{{ true if __http_proxy else false }}"
+      http_proxy: "{{ __http_proxy }}"
+      https_proxy: "{{ __http_proxy }}"
+      no_proxy:
+        - "{{ __domain_basename }}"
+
+    nas__proxy: "{{ __http_proxy | regex_replace('http://', '') | regex_replace('127\\.0\\.0\\.1', '172.17.0.1') }}"
+    nas__docker_mirror: "{{ __nas__docker_mirror }}"
+
+    nas__dir_base: "{{ __nas__dir_base }}"
+    nas__dir_userdata: "{{ __nas__dir_userdata }}"
+    nas__dir_runtime: "{{ __nas__dir_runtime }}"
+    nas__subnets_nas: "{{ __nas__subnets_nas }}"
+    nas__subnets_nextcloud: "{{ __nas__subnets_nextcloud }}"
+
+    nas__certbot_staging: "{{ __nas__certbot_staging }}"
+    nas__domain_nas: "nas.{{ __domain_basename }}"
+    nas__domain_ldap: "{{ __domain_basename }}"
+
+    nas__default_group: "{{ __nas__default_group }}"
+    nas__samba_sharename: "{{ __nas__samba_sharename }}"
+    nas__samba_username: "{{ __nas__samba_username }}"
+    nas__samba_password: "{{ __nas__samba_password }}"
+    nas__samba_mountpoint: "{{ __nas__samba_mountpoint }}"
+    nas__samba_subdirs: "{{ __nas__samba_subdirs }}"
+
+    # email.env
+    nas__mail_enable: "{{ __nas__mail_enable }}"
+    nas__mail_name__fromid: "{{ __nas__mail_name__fromid }}"
+    nas__mail_name__domain: "{{ __nas__mail_name__domain }}"
+    nas__mail_smtp__host: "{{ __nas__mail_smtp__host }}"
+    nas__mail_smtp__port: "{{ __nas__mail_smtp__port }}"
+    nas__mail_smtp__secure: "{{ __nas__mail_smtp__secure }}"
+    nas__mail_smtp__need_auth: "{{ __nas__mail_smtp__need_auth }}"
+    nas__mail_smtp__username: "{{ __nas__mail_smtp__username }}"
+    nas__mail_smtp__password: "{{ __nas__mail_smtp__password }}"
+
+    # secrets.evn
+    nas__dns_api__envname: "{{ __nas__dns_api__envname }}"
+    nas__dns_api__token: "{{ __nas__dns_api__token }}"
+    nas__ldap__admin_password: "{{ __nas__ldap__admin_password }}"
+    nas__ldap__config_password: "{{ __nas__ldap__config_password }}"
+    nas__ldap__readonly_username: "{{ __nas__ldap__readonly_username }}"
+    nas__ldap__readonly_password: "{{ __nas__ldap__readonly_password }}"
+    nas__ldap__ssp_username: "{{ __nas__ldap__ssp_username }}"
+    nas__ldap__ssp_password: "{{ __nas__ldap__ssp_password }}"
+    nas__oidc__nextcloud_id: "{{ __nas__oidc__nextcloud_id }}"
+    nas__oidc__nextcloud_secret: "{{ __nas__oidc__nextcloud_secret }}"
+    nas__nextcloud__admin_username: "{{ __nas__nextcloud__admin_username }}"
+    nas__nextcloud__admin_password: "{{ __nas__nextcloud__admin_password }}"
+    nas__nextcloud__db_name: "{{ __nas__nextcloud__db_name }}"
+    nas__nextcloud__db_user: "{{ __nas__nextcloud__db_user }}"
+    nas__nextcloud__db_passwd: "{{ __nas__nextcloud__db_passwd }}"
+
+    nas__ldap__userlist: "{{ __nas__ldap__userlist }}"

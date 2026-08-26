@@ -1,0 +1,6 @@
+# Collections section
+collections:
+  # Install from Ansible Galaxy with version constraints
+  - name: community.general
+    version: ">=13.0.0"
+

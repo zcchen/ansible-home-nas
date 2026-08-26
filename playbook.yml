@@ -1,0 +1,11 @@
+---
+
+- hosts: nas
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  vars:
+    debug_print: false
+  roles:
+    - nas
+  tags:
+    - nas

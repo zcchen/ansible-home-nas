@@ -1,0 +1,24 @@
+---
+
+nas__images:
+  nginx: nginx:1.30.4
+  certbot_dns_cf: certbot/dns-cloudflare:v5.7.0
+  whoami: traefik/whoami:latest
+  ldap_base: osixia/openldap:1.5.0
+  ldap_admin: osixia/phpldapadmin:latest
+  ldap_oidc: authelia/authelia:4.39.20
+  ldap_ssp: ltbproject/self-service-password:1.8.1
+  onlyoffice: onlyoffice/documentserver:9.4.0
+  nextcloud_fpm: nextcloud:34.0.3-fpm
+  nextcloud_pg: postgres:alpine
+  nextcloud_redis: redis:alpine
+  nextcloud_imaginary: nextcloud/aio-imaginary:20260805_083533
+  nextcloud_samba: dockurr/samba:4.23.10
+
+nas__dirs_default:
+  userdata: "${PWD}/userdata/nas"
+  runtime: "${PWD}/runtime/nas"
+
+nas__subnets_default:
+  nas: 172.28.100.0/24
+  nextcloud: 172.28.102.0/24

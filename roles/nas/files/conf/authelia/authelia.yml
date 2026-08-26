@@ -1,0 +1,85 @@
+theme: "auto"
+
+server:
+  address: 'tcp://:80/'
+
+access_control:
+  default_policy: 'deny'
+  rules:
+    - domain: '{{ mustEnv "DOMAIN_BASE" }}'
+      policy: 'one_factor'
+
+identity_validation:
+  elevated_session:
+    code_lifespan: '5 minutes'
+    elevation_lifespan: '10 minutes'
+    characters: 8
+    require_second_factor: false
+    skip_second_factor: false
+notifier:
+  disable_startup_check: false
+  filesystem:
+    filename: '/config/notification.txt'
+session:
+  secret: '{{ env "AUTHELIA__SECRETS_SESSION" }}'
+  cookies:
+    - domain: 'auth.{{ mustEnv "DOMAIN_BASE" }}'
+      authelia_url: 'https://auth.{{ mustEnv "DOMAIN_BASE" }}'
+storage:
+  encryption_key: '{{ env "AUTHELIA__SECRETS_STORAGE" }}'
+  local:
+    path: '/config/db.sqlite3'
+authentication_backend:
+  # disable the passwd functions because it requires E-mail to send a OTP code to verify.
+  password_reset:
+    disable: true
+    custom_url: 'https://ssp.{{ mustEnv "DOMAIN_BASE" }}'
+  password_change:
+    disable: true
+  refresh_interval: 1m  ## How often authelia should check if there is an user update in LDAP
+  # ldap:
+  #   implementation: custom
+  #   address: ldap://ldap:389
+  #   timeout: 5s
+  #   start_tls: false
+  #   # You need to set this to ou=people, because all users are stored in this ou!
+  #   additional_users_dn: ou=people
+  #   # Set this to ou=groups, because all groups are stored in this ou
+  #   additional_groups_dn: ou=groups
+  #   # To allow sign in both with username and email, one can use a filter like
+  #   # (&(|({username_attribute}={input})({mail_attribute}={input}))(objectClass=person))
+  #   users_filter: "(&({username_attribute}={input})(objectClass=person))"
+  #   # The groups are not displayed in the UI, but this filter works.
+  #   groups_filter: "(&(uniquemember={dn})(objectclass=groupOfUniqueNames))"
+  #   # The attribute holding the name of the group.
+  #   attributes:
+  #     display_name: displayName
+  #     username: uid
+  #     group_name: cn
+  #     mail: mail
+  #     member_of: memberOf
+identity_providers:
+  oidc:
+    jwks:
+      - key: {{ secret "/config/private.pem" | mindent 10 "|" | msquote }}
+    cors:
+      endpoints:
+        - 'token'
+      allowed_origins_from_client_redirect_uris: true
+    clients:
+      - client_name: 'NextCloud'
+        client_id: '{{ env "NC_SECRET__AUTHELIA_CLIENT_ID" }}'
+        client_secret: '{{ env "NC_SECRET__AUTHELIA_CLIENT_SECRET" }}'
+        public: false
+        authorization_policy: 'one_factor'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://files.{{ mustEnv "DOMAIN_BASE" }}/apps/user_oidc/code'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+          - 'groups'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'client_secret_post'

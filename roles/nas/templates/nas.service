@@ -1,0 +1,18 @@
+[Unit]
+Description = NAS
+After = network.target docker.service
+Wants = network.target docker.service
+
+[Service]
+Type = simple
+Restart = always
+RestartPreventExitStatus = 23
+ExecStart = {{ nas__dir_base }}/docker-compose.sh --ansi=never --progress=plain up
+ExecStop = {{ nas__dir_base }}/docker-compose.sh --ansi=never --progress=plain down -v
+WorkingDirectory = {{ nas__dir_base }}
+User = {{ ansible_user_uid }}
+Group = {{ ansible_user_gid }}
+
+[Install]
+WantedBy = multi-user.target
+

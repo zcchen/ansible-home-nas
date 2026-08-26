@@ -1,0 +1,8 @@
+docker__proxy: {}
+docker__proxy_default:
+  enable: false
+  http_proxy: ""
+  https_proxy: ""
+  no_proxy:
+    - localhost
+    - 127.0.0.1

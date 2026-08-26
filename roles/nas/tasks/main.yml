@@ -1,0 +1,231 @@
+---
+
+- name: "make base dir <{{ nas__dir_base }}> for nas."
+  become: true
+  ansible.builtin.file:
+    path: "{{ nas__dir_base }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ ansible_user_uid }}"
+    group: "{{ ansible_user_gid }}"
+
+- name: Generate esstiential docker-compose files to base dir
+  ansible.builtin.template:
+    src: "templates/compose/{{ item }}.j2"
+    dest: "{{ nas__dir_base }}/docker-compose.{{ item }}"
+    owner: "{{ ansible_user_uid }}"
+    group: "{{ ansible_user_gid }}"
+    mode: '0644'
+  with_items:
+    - network.yml
+    - ldap.yml
+    - nextcloud.yml
+    - onlyoffice.yml
+  notify:
+    - pull images
+    - build images
+    - restart nas
+
+- name: Copy 'docker/' dir to base dir
+  ansible.builtin.copy:
+    src: "files/docker"
+    dest: "{{ nas__dir_base }}/"
+    owner: "{{ ansible_user_uid }}"
+    group: "{{ ansible_user_gid }}"
+    mode: preserve
+  notify:
+    - pull images
+    - build images
+    - restart nas
+
+- name: Copy 'conf/' dir & docker-compose.sh to base dir
+  ansible.builtin.copy:
+    src: "files/{{ item }}"
+    dest: "{{ nas__dir_base }}/"
+    owner: "{{ ansible_user_uid }}"
+    group: "{{ ansible_user_gid }}"
+    mode: preserve
+  with_items:
+    - conf
+    - docker-compose.sh
+  notify:
+    - restart nas
+
+- name: "Make esstiential sub-dirs under '{{ nas__dir_base }}/'"
+  ansible.builtin.file:
+    path: "{{ nas__dir_base }}/{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ ansible_user_uid }}"
+    group: "{{ ansible_user_gid }}"
+  with_items:
+    - conf/
+    - env/
+    - secrets/
+
+- name: Generate datapoints.env file to base dir
+  ansible.builtin.template:
+    src: "templates/datapoints.env.j2"
+    dest: "{{ nas__dir_base }}/datapoints.env"
+    owner: "{{ ansible_user_uid }}"
+    group: "{{ ansible_user_gid }}"
+    mode: '0644'
+  notify:
+    - restart nas
+
+- name: Generate runtime env files to 'env/'
+  ansible.builtin.template:
+    src: "templates/env/{{ item }}.j2"
+    dest: "{{ nas__dir_base }}/env/{{ item }}"
+    owner: "{{ ansible_user_uid }}"
+    group: "{{ ansible_user_gid }}"
+    mode: '0644'
+  with_items:
+    - domains.env
+    - ldap.env
+    - proxy.env
+    - samba-share.env
+    - uid.env
+    - user-group.env
+  notify:
+    - restart nas
+
+- name: Check if 'secrets.env' file exists
+  ansible.builtin.stat:
+    path: "{{ nas__dir_base }}/secrets/secrets.env"
+  register: _nas__secret_envfile
+
+- name: Read 'secrets.env' file contents if exists
+  when: _nas__secret_envfile.stat.exists
+  ansible.builtin.slurp:
+    src: "{{ nas__dir_base }}/secrets/secrets.env"
+  register: _nas__secret_env
+
+- name: Get the current secret strings or generate random ones
+  ansible.builtin.set_fact:
+    _nas__secrets_ldapssp: |-
+      {%- set content = _nas__secret_env.content if _nas__secret_env.content is defined else '' -%}
+      {%- set decoded = content | b64decode if content else '' -%}
+      {%- set matches = decoded | regex_findall('LDAPSSP__SECRETS_KEYPHRASE="?([^"\n]*)"?') if decoded else [] -%}
+      {{ matches | join('') or lookup('community.general.random_string', length=32, base64=false, upper=true, lower=true, numbers=true, special=false) }}
+    _nas__secrets_authelia_session: |-
+      {%- set content = _nas__secret_env.content if _nas__secret_env.content is defined else '' -%}
+      {%- set decoded = content | b64decode if content else '' -%}
+      {%- set matches = decoded | regex_findall('AUTHELIA__SECRETS_SESSION="?([^"\n]*)"?') if decoded else [] -%}
+      {{ matches | join('') or lookup('community.general.random_string', length=32, base64=false, upper=true, lower=true, numbers=true, special=false) }}
+    _nas__secrets_authelia_storage: |-
+      {%- set content = _nas__secret_env.content if _nas__secret_env.content is defined else '' -%}
+      {%- set decoded = content | b64decode if content else '' -%}
+      {%- set matches = decoded | regex_findall('AUTHELIA__SECRETS_STORAGE="?([^"\n]*)"?') if decoded else [] -%}
+      {{ matches | join('') or lookup('community.general.random_string', length=32, base64=false, upper=true, lower=true, numbers=true, special=false) }}
+    _nas__secrets_onlyoffice_jwt: |-
+      {%- set content = _nas__secret_env.content if _nas__secret_env.content is defined else '' -%}
+      {%- set decoded = content | b64decode if content else '' -%}
+      {%- set matches = decoded | regex_findall('ONLYOFFICE__JWT_SECRET="?([^"\n]*)"?') if decoded else [] -%}
+      {{ matches | join('') or lookup('community.general.random_string', length=32, base64=false, upper=true, lower=true, numbers=true, special=false) }}
+
+- name: Generate secret env files to 'secrets/'
+  ansible.builtin.template:
+    src: "templates/secrets/{{ item }}.j2"
+    dest: "{{ nas__dir_base }}/secrets/{{ item }}"
+    owner: "{{ ansible_user_uid }}"
+    group: "{{ ansible_user_gid }}"
+    mode: '0644'
+  with_items:
+    - email.env
+    - secrets.env
+    - ldap-ext-users.txt
+  notify:
+    - restart nas
+
+- name: Generate the runtime dirs for NAS
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode | default('0755') }}"
+    owner: "{{ item.owner | default(ansible_user_uid) }}"
+    group: "{{ item.group | default(ansible_user_gid) }}"
+  with_items:
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/letsencrypt/etc"
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/letsencrypt/lib"
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/letsencrypt/log"
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/openldap/conf/"
+      owner: 911
+      group: 911
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/openldap/db/"
+      owner: 911
+      group: 911
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/authelia/"
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/phpldapadmin/"
+      owner: www-data
+      group: www-data
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/ssp/templates_c/"
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/ssp/conf/"
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/ssp/cache/"
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/nextcloud/html/"
+      owner: www-data
+      group: www-data
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/nextcloud/config/"
+      owner: www-data
+      group: www-data
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/nextcloud/custom-apps/"
+      owner: www-data
+      group: www-data
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/nextcloud/postgres/"
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/onlyoffice/data"
+      owner: 101
+      group: 102
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/onlyoffice/lib"
+      owner: 101
+      group: 102
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/onlyoffice/plugins"
+      owner: 101
+      group: 102
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/onlyoffice/log"
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/onlyoffice/fonts/"
+    - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/samba/storage"
+      owner: root
+      group: root
+
+- name: Generate the userdata dirs for NAS nextcloud
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode | default('0770') }}"
+    owner: "{{ item.owner | default(ansible_user_uid) }}"
+    group: "{{ item.group | default(ansible_user_gid) }}"
+  with_items:
+    - path: "{{ nas__dir_userdata | default(nas__dirs_default.userdata) }}/nextcloud/data/"
+      owner: www-data
+      group: www-data
+
+- name: Generate the userdata dirs for NAS samba
+  become: true
+  ansible.builtin.file:
+    path: "{{ nas__dir_userdata | default(nas__dirs_default.userdata) }}/samba/{{ item }}/"
+    state: directory
+    mode: '0755'
+    owner: "{{ ansible_user_uid }}"
+    group: "{{ ansible_user_gid }}"
+  with_items: "{{ nas__samba_subdirs | default([]) }}"
+
+- name: "Render NAS service"
+  become: true
+  ansible.builtin.template:
+    src: "nas.service"
+    dest: "/lib/systemd/system/nas.service"
+    mode: '0644'
+    owner: root
+    group: root
+  notify:
+    - pull images
+    - build images
+    - reload systemd
+    - restart nas
+
+- name: "Enable NAS service"
+  ansible.builtin.systemd:
+    name: nas
+    enabled: yes
