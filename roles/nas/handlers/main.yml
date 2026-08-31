@@ -1,22 +1,22 @@
 ---
 
 - name: pull images
-  timeout: 600
+  timeout: 1800
   register: pull_result
   until: "pull_result.failed == false"
-  retries: 5
-  delay: 10
+  retries: 10
+  delay: 30
   community.docker.docker_image:
     name: "{{ item.value }}"
     source: pull
   with_dict: "{{ nas__images }}"
 
 - name: build images
-  timeout: 600
+  timeout: 1800
   register: build_result
   until: "build_result.rc == 0"
-  retries: 5
-  delay: 10
+  retries: 10
+  delay: 30
   ansible.builtin.shell:
     cmd: ./docker-compose.sh build
     chdir: "{{ nas__dir_base }}"
