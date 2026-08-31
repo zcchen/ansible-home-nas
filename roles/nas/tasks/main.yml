@@ -150,6 +150,7 @@
     - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/letsencrypt/etc"
     - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/letsencrypt/lib"
     - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/letsencrypt/log"
+      mode: '0700'
     - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/openldap/conf/"
       owner: 911
       group: 911
@@ -180,6 +181,7 @@
       owner: 101
       group: 102
     - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/onlyoffice/plugins"
+      mode: '0755'
       owner: 101
       group: 102
     - path: "{{ nas__dir_runtime | default(nas__dirs_default.runtime) }}/onlyoffice/log"
@@ -226,6 +228,7 @@
     - restart nas
 
 - name: "Enable NAS service"
+  become: true
   ansible.builtin.systemd:
     name: nas
     enabled: yes
