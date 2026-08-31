@@ -32,7 +32,6 @@
     owner: root
     group: root
   notify:
-    - reload systemd
     - restart docker
 
 - name: "Generate /etc/systemd/system/docker.service.d/http-proxy.conf if needed"
@@ -47,7 +46,6 @@
       Environment="HTTPS_PROXY={{ _docker__proxy.https_proxy }}"
       Environment="NO_PROXY={{ _docker__proxy.no_proxy }}"
   notify:
-    - reload systemd
     - restart docker
 
 - name: Force docker handlers to run now
