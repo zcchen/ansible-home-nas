@@ -30,7 +30,21 @@ configure_uid_and_gid() {
         /opt/certbot
 }
 
-certbot_cmd="su-exec ${PUID:-0}:${PGID:-0} certbot"
+certbot_cmd="certbot"
+add_user_groups() {
+    getent group "${PGID}" >/dev/null || groupadd -g "${PGID}" certbot
+    if [ -S /var/run/docker.sock ]; then
+        GID_DOCKER=$(stat -c '%g' /var/run/docker.sock 2>/dev/null)
+        getent group "${GID_DOCKER}" >/dev/null || groupadd -g "${GID_DOCKER}" docker
+        getent passwd "${PUID}" >/dev/null || useradd -M -u "${PUID}" -g ${PGID} -G ${GID_DOCKER} certbot
+    else
+        getent passwd "${PUID}" >/dev/null || useradd -M -u "${PUID}" -g ${PGID} certbot
+    fi
+    if [ ${PUID} -ne 0 ]; then
+        certbot_cmd="su-exec certbot certbot"
+    fi
+}
+
 
 run_certbot() {
     # Ensure the log directory is set to 700
@@ -76,6 +90,16 @@ run_certbot() {
     fi
     if [ "$STAGING" = "true" ]; then
         set -- "$@" --staging
+    else    # Add `--force-renewal` args to update the previous staging certifications
+        if [ -n "$CERTBOT_CERT_NAME" ]; then
+            if expr "$($certbot_cmd certificates --cert-name $CERTBOT_CERT_NAME)" : ".*INVALID: TEST_CERT"; then
+                set -- "$@" --force-renewal
+            fi
+        else
+            if expr "$($certbot_cmd certificates)" : ".*INVALID: TEST_CERT"; then
+                set -- "$@" --force-renewal
+            fi
+        fi
     fi
 
     $certbot_cmd $debug_flag certonly \
@@ -179,6 +203,8 @@ main() {
         chmod 600 "$CLOUDFLARE_CREDENTIALS_FILE"
         chown "${PUID:-0}:${PGID:-0}" "$CLOUDFLARE_CREDENTIALS_FILE"
 
+        # add non-root user & group if defined for certbot exec
+        add_user_groups
         # Run certbot initially to get the certificates
         run_certbot
         # If RENEWAL_INTERVAL is set to 0, do not attempt to renew certificates and exit immediately
