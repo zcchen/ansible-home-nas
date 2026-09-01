@@ -142,12 +142,12 @@ configurate() {
             || (log_print ERROR "FAILED to update olcAccess for common user." >&2; return 1)
     fi
     if ! is_dn_existing_mute "cn=${__GROUP_NAME},ou=groups,${__BASE_DN}"; then
-        log_print INFO "Try to create group 'cn=${__GROUP_NAME},ou=groups,${__BASE_DN}'."
+        log_print INFO "Try to group users <${memberAdd_list[@]}> to new-group 'cn=${__GROUP_NAME},ou=groups,${__BASE_DN}'."
         import_ldif_data "$(generate_ldif_group_add ${__GROUP_NAME} ${memberAdd_list[@]})" \
             && log_print INFO "Success to create group 'cn=${__GROUP_NAME},ou=groups,${__BASE_DN}'." \
             || log_print ERROR "FAILED to create group 'cn=${__GROUP_NAME},ou=groups,${__BASE_DN}'." >&2
     else
-        log_print INFO "Try to append users to group 'cn=${__GROUP_NAME},ou=groups,${__BASE_DN}'."
+        log_print INFO "Try to append users <${memberAdd_list[@]}> to group 'cn=${__GROUP_NAME},ou=groups,${__BASE_DN}'."
         import_ldif_data "$(generate_ldif_group_append ${__GROUP_NAME} ${memberAdd_list[@]})" \
             && log_print INFO "Success to append users to group 'cn=${__GROUP_NAME},ou=groups,${__BASE_DN}'." \
             || log_print ERROR "FAILED to append users to group 'cn=${__GROUP_NAME},ou=groups,${__BASE_DN}'." >&2
