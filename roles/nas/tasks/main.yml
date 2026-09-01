@@ -190,18 +190,27 @@
       owner: root
       group: root
 
-- name: Generate the userdata dirs for NAS nextcloud
+- name: Generate the userdata dirs for NAS.
   become: true
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: directory
-    mode: "{{ item.mode | default('0770') }}"
-    owner: "{{ item.owner | default(ansible_user_uid) }}"
-    group: "{{ item.group | default(ansible_user_gid) }}"
+    mode: "{{ item.mode | default('0755') }}"
+    # give root permissions because it can block some mistake actions
+    owner: "root"
+    group: "root"
   with_items:
-    - path: "{{ nas__dir_userdata | default(nas__dirs_default.userdata) }}/nextcloud/data/"
-      owner: www-data
-      group: www-data
+    - path: "{{ nas__dir_userdata | default(nas__dirs_default.userdata) }}/nextcloud/"
+    - path: "{{ nas__dir_userdata | default(nas__dirs_default.userdata) }}/samba//"
+
+- name: Generate the userdata dirs for NAS nextcloud
+  become: true
+  ansible.builtin.file:
+    path: "{{ nas__dir_userdata | default(nas__dirs_default.userdata) }}/nextcloud/data/"
+    state: directory
+    mode: "{{ item.mode | default('0750') }}"
+    owner: www-data
+    group: www-data
 
 - name: Generate the userdata dirs for NAS samba
   become: true
@@ -224,7 +233,6 @@
   notify:
     - pull images
     - build images
-    - reload systemd
     - restart nas
 
 - name: "Enable NAS service"

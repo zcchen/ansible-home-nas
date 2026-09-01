@@ -22,14 +22,10 @@
     chdir: "{{ nas__dir_base }}"
     executable: /bin/bash
 
-- name: reload systemd
-  become: true
-  ansible.builtin.systemd:
-    daemon_reload: true
-
 - name: restart nas
   become: true
   ansible.builtin.systemd:
+    daemon_reload: true
     name: nas
     state: restarted
 
