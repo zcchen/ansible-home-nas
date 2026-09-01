@@ -10,6 +10,7 @@ RUN if [ -n "${MIRROR_URL}" ]; then \
 RUN apt update \
     && apt upgrade -y \
     && apt install -f -y \
+        exiftool \
         procps jq \
         ffmpeg \
         libsmbclient-dev \
