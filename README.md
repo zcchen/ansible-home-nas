@@ -6,6 +6,12 @@ This project aims to setup a NAS server by different Open-Source projects with `
 
 How to use
 ----------------------------------------
+Execute the playbook script.
+```
+ansible-playbook -i inventory/ playbook.yml                 # execute all tasks
+ansible-playbook -i inventory/ playbook.yml --tags <xxx>    # execute only the tasks under tag xxx
+```
+
 
 
 What may Include and Exclude?
